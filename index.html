@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Global Chat</title>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+body { font-family: Arial, sans-serif; }
+#chat { border: 1px solid #ccc; height: 400px; overflow-y: scroll; padding: 10px; }
+.message { margin: 5px 0; }
+.username { font-weight: bold; }
+.pfp { width: 30px; height: 30px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
+#typing { font-style: italic; color: gray; }
+</style>
+</head>
+<body>
+
+<h2>Global Chat</h2>
+<div>
+    Username: <input type="text" id="username" placeholder="Your name">
+    PFP URL: <input type="text" id="pfp" placeholder="Profile picture URL">
+    <button onclick="joinChat()">Join</button>
+</div>
+
+<div id="chat"></div>
+<div id="typing"></div>
+
+<input type="text" id="message" placeholder="Type a message..." oninput="typing()">
+<button onclick="sendMessage()">Send</button>
+
+<script>
+let socket;
+let joined = false;
+
+function joinChat() {
+    const username = document.getElementById('username').value;
+    const pfp = document.getElementById('pfp').value;
+    if (!username) return alert("Enter a username");
+
+    socket = io();
+
+    socket.on('connect', () => {
+        socket.emit('join', {username, pfp});
+        joined = true;
+    });
+
+    socket.on('receive_message', data => {
+        const chat = document.getElementById('chat');
+        const div = document.createElement('div');
+        div.className = 'message';
+        div.innerHTML = `<img src="${data.pfp}" class="pfp">${data.username}: ${data.message}`;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+    });
+
+    socket.on('user_joined', data => {
+        const chat = document.getElementById('chat');
+        const div = document.createElement('div');
+        div.className = 'message';
+        div.innerHTML = `<em>${data.username} joined the chat</em>`;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+    });
+
+    socket.on('user_left', data => {
+        const chat = document.getElementById('chat');
+        const div = document.createElement('div');
+        div.className = 'message';
+        div.innerHTML = `<em>${data.username} left the chat</em>`;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+    });
+
+    socket.on('user_typing', data => {
+        const typing = document.getElementById('typing');
+        typing.innerText = `${data.username} is typing...`;
+        setTimeout(() => { typing.innerText = ''; }, 1000);
+    });
+}
+
+function sendMessage() {
+    const msg = document.getElementById('message').value;
+    if (msg && joined) {
+        socket.emit('send_message', {message: msg});
+        document.getElementById('message').value = '';
+    }
+}
+
+function typing() {
+    if (joined) socket.emit('typing', {});
+}
+</script>
+
+</body>
+</html>
